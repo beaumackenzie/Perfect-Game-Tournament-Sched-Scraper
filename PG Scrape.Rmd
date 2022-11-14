@@ -1,0 +1,99 @@
+
+library(rvest)
+library(dplyr)
+library(lubridate)
+
+#'[ Tournament start date (year/month/day)
+#'
+start_date <- "2022/10/05"
+
+#'[ Number of days of tournament
+
+num_days <- 6
+
+#'[ Tournament schedule url
+
+tournament_url <- "https://www.perfectgame.org/events/TournamentSchedule.aspx?event=39564&Date=10/5/2022"
+
+tournament_url <- sub("Date=.*", "", tournament_url)
+
+
+
+start_date <- as.Date(start_date)
+
+datelist <- list()
+
+
+
+i <- 1
+while(i <= num_days){
+  
+  datelist[[i]] <- start_date+i-1
+  
+  
+  i <- i+1
+}
+
+
+i <- 1
+while (i <= length(datelist)) {
+  
+  
+  datelist[[i]] <- gsub("(\\D)0", "\\1", format(as.Date(datelist[[i]]), "%m/%d/%Y"))
+  
+  i <- i+1
+  
+}
+
+
+
+tournament_schedule <- list()
+
+i <- 1
+while(i <= length(datelist)){
+  
+  pgurl <- read_html(paste(tournament_url, "Date=", datelist[[i]], sep = ""))
+  
+  
+  times <- pgurl %>% html_nodes("div.col-lg-3 div") %>% html_text()
+  
+  
+  game_num <- times[grepl("Gm#", times)]
+  
+  times <- times[grepl(" AM| PM", times)]
+  
+  
+  fields <- pgurl %>% html_nodes("div.col-lg-6 div a") %>% html_text()
+  
+  
+  teams <- pgurl %>% html_nodes("div.col-lg-5 div div a") %>% html_text()
+  
+  
+  players <-  pgurl %>% html_nodes("div.col-lg-5 tr td a") %>% html_text()
+  
+  teams <- teams[!(teams %in% players)]
+  
+  away <- teams[seq(1, length(teams), 2)]
+  
+  home <- teams[seq(2, length(teams), 2)]
+  
+  date <- rep(datelist[[i]], length(home))
+  
+  
+  sched_day <- data.frame(date, game_num, times, fields, away, home)
+  colnames(sched_day) <- c("date", "game_num", "time", "field", "away", "home")
+  
+  tournament_schedule[[i]] <- sched_day
+  
+  i <- i+1
+}
+
+
+tournament_schedule <- do.call(rbind, tournament_schedule)
+
+
+#'[ Save R file to desktop so file writes to desktop
+
+write.csv(tournament_schedule, "2022 WWBA Championship Schedule.csv")
+
+
